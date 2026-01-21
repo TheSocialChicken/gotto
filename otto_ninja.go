@@ -15,28 +15,34 @@ const (
 	ModeRoll
 )
 
+type Calibration struct {
+	TiltAngle         int
+	LeftStepDuration  time.Duration
+	RightStepDuration time.Duration
+}
+
 type Ninja struct {
-	rLeg              Servo180
-	rFoot             Servo360
-	lLeg              Servo180
-	lFoot             Servo360
-	tiltAngle         int
-	leftStepDuration  time.Duration
-	rightStepDuration time.Duration
-	mode              Mode
-	err               error
+	rLeg        Servo180
+	rFoot       Servo360
+	lLeg        Servo180
+	lFoot       Servo360
+	mode        Mode
+	err         error
+	calibration Calibration
 }
 
 func New(rLeg, lLeg Servo180, rFoot, lFoot Servo360) Ninja {
 	return Ninja{
-		rLeg:              rLeg,
-		rFoot:             rFoot,
-		lLeg:              lLeg,
-		lFoot:             lFoot,
-		tiltAngle:         65,
-		leftStepDuration:  600 * time.Millisecond,
-		rightStepDuration: 600 * time.Millisecond,
-		mode:              ModeWalk,
+		rLeg:  rLeg,
+		rFoot: rFoot,
+		lLeg:  lLeg,
+		lFoot: lFoot,
+		calibration: Calibration{
+			TiltAngle:         65,
+			LeftStepDuration:  600 * time.Millisecond,
+			RightStepDuration: 600 * time.Millisecond,
+		},
+		mode: ModeWalk,
 	}
 }
 
@@ -76,7 +82,11 @@ func (n Ninja) lFootSpeed(speed int) {
 	n.err = n.lFoot.SetSpeed(speed)
 }
 
-func (n Ninja) Error() error {
+func (n Ninja) Calibrate(calibration Calibration) {
+	n.calibration = calibration
+}
+
+func (n Ninja) error() error {
 	err := n.err
 	n.err = nil
 	return err
@@ -84,17 +94,17 @@ func (n Ninja) Error() error {
 
 func (n Ninja) Tilt(dir TiltDir) error {
 	if dir == TiltLeft {
-		n.lLegAngle(n.tiltAngle)
+		n.lLegAngle(n.calibration.TiltAngle)
 	} else {
 		n.lLegAngle(0)
 	}
 	if dir == TiltRight {
-		n.rLegAngle(n.tiltAngle)
+		n.rLegAngle(n.calibration.TiltAngle)
 	} else {
 		n.rLegAngle(0)
 	}
 
-	return n.Error()
+	return n.error()
 }
 
 func (n Ninja) Mode(mode Mode) error {
@@ -111,21 +121,21 @@ func (n Ninja) Mode(mode Mode) error {
 		n.lLegAngle(0)
 		n.rLegAngle(180)
 	}
-	return n.Error()
+	return n.error()
 }
 
 func (n Ninja) MoveLeftFoot(speed int, duration time.Duration) error {
 	n.lFootSpeed(speed)
 	time.Sleep(duration)
 	n.lFootSpeed(0)
-	return n.Error()
+	return n.error()
 }
 
 func (n Ninja) MoveRightFoot(speed int, duration time.Duration) error {
 	n.rFootSpeed(speed)
 	time.Sleep(duration)
 	n.rFootSpeed(0)
-	return n.Error()
+	return n.error()
 }
 
 func (n Ninja) RotateLeft(speed int, duration time.Duration) error {
@@ -138,7 +148,7 @@ func (n Ninja) RotateLeft(speed int, duration time.Duration) error {
 	time.Sleep(duration)
 	n.lFootSpeed(0)
 	n.Tilt(TiltCenter)
-	return n.Error()
+	return n.error()
 }
 
 func (n Ninja) RotateRight(speed int, duration time.Duration) error {
@@ -151,7 +161,7 @@ func (n Ninja) RotateRight(speed int, duration time.Duration) error {
 	time.Sleep(duration)
 	n.rFootSpeed(0)
 	n.Tilt(TiltCenter)
-	return n.Error()
+	return n.error()
 }
 
 func (n Ninja) Walk(speed int, steps int, backwards bool) error {
@@ -167,14 +177,14 @@ func (n Ninja) Walk(speed int, steps int, backwards bool) error {
 		speed = -speed
 	}
 
-	n.RotateRight(speed, n.rightStepDuration/2)
+	n.RotateRight(speed, n.calibration.RightStepDuration/2)
 	for range steps - 1 {
-		n.RotateRight(speed, n.rightStepDuration)
-		n.RotateLeft(-speed, n.leftStepDuration)
+		n.RotateRight(speed, n.calibration.RightStepDuration)
+		n.RotateLeft(-speed, n.calibration.LeftStepDuration)
 	}
-	n.RotateLeft(-speed, n.leftStepDuration/2)
+	n.RotateLeft(-speed, n.calibration.LeftStepDuration/2)
 
-	return n.Error()
+	return n.error()
 }
 
 func (n Ninja) WalkForward(speed int, steps int) error {
@@ -197,9 +207,9 @@ func (n Ninja) Turn(speed int, dir TurnDirection) error {
 	case ModeWalk:
 		switch dir {
 		case TurnLeft:
-			return n.RotateLeft(speed, n.leftStepDuration*2)
+			return n.RotateLeft(speed, n.calibration.LeftStepDuration*2)
 		case TurnRight:
-			return n.RotateRight(speed, n.rightStepDuration*2)
+			return n.RotateRight(speed, n.calibration.RightStepDuration*2)
 		default:
 			return ErrInvalidDirection
 		}
@@ -220,7 +230,7 @@ func (n Ninja) Turn(speed int, dir TurnDirection) error {
 	default:
 		return ErrInvalidMode
 	}
-	return n.Error()
+	return n.error()
 }
 
 func (n Ninja) Roll(throttle, turn int) error {
@@ -230,7 +240,7 @@ func (n Ninja) Roll(throttle, turn int) error {
 
 	n.lFootSpeed(max(throttle + turn))
 	n.rFootSpeed(max(throttle - turn))
-	return n.Error()
+	return n.error()
 }
 
 func (n Ninja) RollStop() error {
