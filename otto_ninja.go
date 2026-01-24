@@ -10,15 +10,31 @@ const (
 	stepDuration = 600 * time.Millisecond
 )
 
-var ErrInvalidMode = errors.New("ninja: invalid mode")
-var ErrInvalidDirection = errors.New("ninja: invalid direction")
-
 type Mode int
 
 const (
 	ModeWalk Mode = iota
 	ModeRoll
 )
+
+type TiltDir int
+
+const (
+	TiltReturnFromLeft TiltDir = iota
+	TiltReturnFromRight
+	TiltLeft
+	TiltRight
+)
+
+type TurnDirection int
+
+const (
+	TurnLeft TurnDirection = iota
+	TurnRight
+)
+
+var ErrInvalidMode = errors.New("ninja: invalid mode")
+var ErrInvalidDirection = errors.New("ninja: invalid direction")
 
 type Calibration struct {
 	TiltAngleTrim         int
@@ -55,28 +71,28 @@ func New(rLeg, lLeg Servo180, rFoot, lFoot Servo360) Ninja {
 	}
 }
 
-type TiltDir int
-
-const (
-	TiltReturnFromLeft TiltDir = iota
-	TiltReturnFromRight
-	TiltLeft
-	TiltRight
-)
+func setAngleSmooth(new, current int, set func(int) error) error {
+	increment := float32(new-current) / 30.0
+	for i := range 30 {
+		if err := set(current + int(increment*float32(i+1))); err != nil {
+			return err
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return nil
+}
 
 func (n *Ninja) lLegAngle(angle int) {
 	if n.err != nil {
 		return
 	}
+
 	angle = 180 - angle
 	angle += n.calibration.LlAngleTrim
-	increment := float32(angle-n.llAngle) / 30.0
-	for i := range 30 {
-		n.err = n.lLeg.SetAngle(n.llAngle + int(increment*float32(i+1)))
-		if n.err != nil {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
+
+	n.err = setAngleSmooth(angle, n.llAngle, n.lLeg.SetAngle)
+	if n.err != nil {
+		return
 	}
 	n.llAngle = angle
 }
@@ -85,17 +101,24 @@ func (n *Ninja) rLegAngle(angle int) {
 	if n.err != nil {
 		return
 	}
+
 	angle += n.calibration.RlAngleTrim
 
-	increment := float32(angle-n.rlAngle) / 30.0
-	for i := range 30 {
-		n.err = n.rLeg.SetAngle(n.rlAngle + int(increment*float32(i+1)))
-		if n.err != nil {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
+	n.err = setAngleSmooth(angle, n.rlAngle, n.rLeg.SetAngle)
+	if n.err != nil {
+		return
 	}
 	n.rlAngle = angle
+}
+
+func speedTrim(speed, trim int) int {
+	switch {
+	case speed > 0:
+		speed = min(speed+trim, 100)
+	case speed < 0:
+		speed = max(speed-trim, -100)
+	}
+	return speed
 }
 
 func (n *Ninja) rFootSpeed(speed int) {
@@ -103,15 +126,7 @@ func (n *Ninja) rFootSpeed(speed int) {
 		return
 	}
 
-	speed = -speed
-
-	switch {
-	case speed > 0:
-		speed = min(speed+n.calibration.RfSpeedTrim, 100)
-	case speed < 0:
-		speed = max(speed-n.calibration.RfSpeedTrim, -100)
-	}
-
+	speed = speedTrim(-speed, n.calibration.RfSpeedTrim)
 	n.err = n.rFoot.SetSpeed(speed)
 }
 
@@ -119,12 +134,8 @@ func (n *Ninja) lFootSpeed(speed int) {
 	if n.err != nil {
 		return
 	}
-	switch {
-	case speed > 0:
-		speed = min(speed+n.calibration.LfSpeedTrim, 100)
-	case speed < 0:
-		speed = max(speed-n.calibration.LfSpeedTrim, -100)
-	}
+
+	speed = speedTrim(speed, n.calibration.LfSpeedTrim)
 	n.err = n.lFoot.SetSpeed(speed)
 }
 
@@ -177,7 +188,7 @@ func (n *Ninja) Home() error {
 		n.rLegAngle(90)
 	case ModeRoll:
 		n.lLegAngle(0)
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 		n.rLegAngle(0)
 	}
 	return n.error()
@@ -202,9 +213,7 @@ func (n *Ninja) LeftLegSpin(speed int, duration time.Duration) error {
 		return ErrInvalidMode
 	}
 	n.Tilt(TiltLeft)
-	n.lFootSpeed(speed)
-	time.Sleep(duration)
-	n.lFootSpeed(0)
+	n.MoveLeftFoot(speed, duration)
 	n.Tilt(TiltReturnFromLeft)
 	return n.error()
 }
@@ -214,9 +223,7 @@ func (n *Ninja) RightLegSpin(speed int, duration time.Duration) error {
 		return ErrInvalidMode
 	}
 	n.Tilt(TiltRight)
-	n.rFootSpeed(speed)
-	time.Sleep(duration)
-	n.rFootSpeed(0)
+	n.MoveRightFoot(speed, duration)
 	n.Tilt(TiltReturnFromRight)
 	return n.error()
 }
@@ -237,25 +244,21 @@ func (n *Ninja) Walk(speed int, steps int) error {
 
 	n.err = n.Home()
 
+	rStepDuration := stepDuration + n.calibration.RightStepDurationTrim
+	lStepDuration := stepDuration + n.calibration.LeftStepDurationTrim
+
 	// start with half step
-	n.err = n.RightLegSpin(speed, (stepDuration+n.calibration.RightStepDurationTrim)/2)
+	n.err = n.RightLegSpin(speed, rStepDuration/2)
 	// do steps-1 full steps
 	for range steps - 1 {
-		n.err = n.LeftLegSpin(speed, stepDuration+n.calibration.LeftStepDurationTrim)
-		n.err = n.RightLegSpin(speed, stepDuration+n.calibration.RightStepDurationTrim)
+		n.err = n.LeftLegSpin(speed, lStepDuration)
+		n.err = n.RightLegSpin(speed, rStepDuration)
 	}
 	// finish with half step
-	n.err = n.LeftLegSpin(speed, (stepDuration+n.calibration.LeftStepDurationTrim)/2)
+	n.err = n.LeftLegSpin(speed, lStepDuration/2)
 
 	return n.error()
 }
-
-type TurnDirection int
-
-const (
-	TurnLeft TurnDirection = iota
-	TurnRight
-)
 
 func (n *Ninja) Turn(speed int, dir TurnDirection) error {
 	switch n.mode {
