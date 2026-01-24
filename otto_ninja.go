@@ -68,6 +68,7 @@ func (n *Ninja) lLegAngle(angle int) {
 	if n.err != nil {
 		return
 	}
+	angle = 180 - angle
 	angle += n.calibration.LlAngleTrim
 	increment := float32(angle-n.llAngle) / 30.0
 	for i := range 30 {
@@ -101,6 +102,8 @@ func (n *Ninja) rFootSpeed(speed int) {
 	if n.err != nil {
 		return
 	}
+
+	speed = -speed
 
 	switch {
 	case speed > 0:
@@ -146,9 +149,9 @@ func (n *Ninja) Tilt(dir TiltDir) error {
 		n.lLegAngle(90)
 	case TiltLeft:
 		n.rLegAngle(90 + angle + 15)
-		n.lLegAngle(90 + angle)
+		n.lLegAngle(90 - angle)
 	case TiltRight:
-		n.lLegAngle(90 - angle - 15)
+		n.lLegAngle(90 + angle + 15)
 		n.rLegAngle(90 - angle)
 	default:
 		return ErrInvalidDirection
@@ -173,7 +176,7 @@ func (n *Ninja) Home() error {
 		n.lLegAngle(90)
 		n.rLegAngle(90)
 	case ModeRoll:
-		n.lLegAngle(180)
+		n.lLegAngle(0)
 		time.Sleep(300 * time.Millisecond)
 		n.rLegAngle(0)
 	}
@@ -235,11 +238,11 @@ func (n *Ninja) Walk(speed int, steps int) error {
 	n.err = n.Home()
 
 	// start with half step
-	n.err = n.RightLegSpin(-speed, (stepDuration+n.calibration.RightStepDurationTrim)/2)
+	n.err = n.RightLegSpin(speed, (stepDuration+n.calibration.RightStepDurationTrim)/2)
 	// do steps-1 full steps
 	for range steps - 1 {
 		n.err = n.LeftLegSpin(speed, stepDuration+n.calibration.LeftStepDurationTrim)
-		n.err = n.RightLegSpin(-speed, stepDuration+n.calibration.RightStepDurationTrim)
+		n.err = n.RightLegSpin(speed, stepDuration+n.calibration.RightStepDurationTrim)
 	}
 	// finish with half step
 	n.err = n.LeftLegSpin(speed, (stepDuration+n.calibration.LeftStepDurationTrim)/2)
@@ -269,10 +272,10 @@ func (n *Ninja) Turn(speed int, dir TurnDirection) error {
 		switch dir {
 		case TurnLeft:
 			n.lFootSpeed(-speed)
-			n.rFootSpeed(-speed)
+			n.rFootSpeed(speed)
 		case TurnRight:
 			n.lFootSpeed(speed)
-			n.rFootSpeed(speed)
+			n.rFootSpeed(-speed)
 		default:
 			return ErrInvalidDirection
 		}
@@ -291,7 +294,7 @@ func (n *Ninja) Roll(throttle, turn int) error {
 	}
 
 	n.lFootSpeed(throttle + turn)
-	n.rFootSpeed(-(throttle - turn))
+	n.rFootSpeed(throttle - turn)
 	return n.error()
 }
 
