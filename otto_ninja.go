@@ -36,41 +36,43 @@ const (
 var ErrInvalidMode = errors.New("ninja: invalid mode")
 var ErrInvalidDirection = errors.New("ninja: invalid direction")
 
-type Calibration struct {
-	TiltAngleTrim         int
-	LeftStepDurationTrim  time.Duration
-	RightStepDurationTrim time.Duration
-	LfSpeedTrim           int
-	RfSpeedTrim           int
-	LlAngleTrim           int
-	RlAngleTrim           int
+type Trim struct {
+	TiltAngle         int
+	LeftStepDuration  time.Duration
+	RightStepDuration time.Duration
+	LfSpeed           int
+	RfSpeed           int
+	LlAngle           int
+	RlAngle           int
 }
 
 type Ninja struct {
-	rLeg        Servo180
-	rFoot       Servo360
-	lLeg        Servo180
-	lFoot       Servo360
-	llAngle     int
-	rlAngle     int
-	mode        Mode
-	err         error
-	calibration Calibration
+	rLeg    Servo180
+	rFoot   Servo360
+	lLeg    Servo180
+	lFoot   Servo360
+	llAngle int
+	rlAngle int
+	mode    Mode
+	err     error
+	trim    Trim
 }
 
 func New(rLeg, lLeg Servo180, rFoot, lFoot Servo360) Ninja {
 	return Ninja{
-		rLeg:        rLeg,
-		rFoot:       rFoot,
-		lLeg:        lLeg,
-		lFoot:       lFoot,
-		llAngle:     90,
-		rlAngle:     90,
-		calibration: Calibration{},
-		mode:        ModeWalk,
+		rLeg:    rLeg,
+		rFoot:   rFoot,
+		lLeg:    lLeg,
+		lFoot:   lFoot,
+		llAngle: 95,
+		rlAngle: 95,
+		trim:    Trim{},
+		mode:    ModeWalk,
 	}
 }
 
+// setAngleSmooth gradually changes the angle from current to new in 30 steps
+// TODO: make step count and delay configurable
 func setAngleSmooth(new, current int, set func(int) error) error {
 	increment := float32(new-current) / 30.0
 	for i := range 30 {
@@ -87,8 +89,8 @@ func (n *Ninja) lLegAngle(angle int) {
 		return
 	}
 
+	angle += n.trim.LlAngle
 	angle = 180 - angle
-	angle += n.calibration.LlAngleTrim
 
 	n.err = setAngleSmooth(angle, n.llAngle, n.lLeg.SetAngle)
 	if n.err != nil {
@@ -102,7 +104,7 @@ func (n *Ninja) rLegAngle(angle int) {
 		return
 	}
 
-	angle += n.calibration.RlAngleTrim
+	angle += n.trim.RlAngle
 
 	n.err = setAngleSmooth(angle, n.rlAngle, n.rLeg.SetAngle)
 	if n.err != nil {
@@ -126,7 +128,7 @@ func (n *Ninja) rFootSpeed(speed int) {
 		return
 	}
 
-	speed = speedTrim(-speed, n.calibration.RfSpeedTrim)
+	speed = speedTrim(-speed, n.trim.RfSpeed)
 	n.err = n.rFoot.SetSpeed(speed)
 }
 
@@ -135,12 +137,12 @@ func (n *Ninja) lFootSpeed(speed int) {
 		return
 	}
 
-	speed = speedTrim(speed, n.calibration.LfSpeedTrim)
+	speed = speedTrim(speed, n.trim.LfSpeed)
 	n.err = n.lFoot.SetSpeed(speed)
 }
 
-func (n *Ninja) Calibrate(calibration Calibration) {
-	n.calibration = calibration
+func (n *Ninja) Trim(trim Trim) {
+	n.trim = trim
 }
 
 func (n *Ninja) error() error {
@@ -150,7 +152,7 @@ func (n *Ninja) error() error {
 }
 
 func (n *Ninja) Tilt(dir TiltDir) error {
-	angle := tiltAngle + n.calibration.TiltAngleTrim
+	angle := tiltAngle + n.trim.TiltAngle
 	switch dir {
 	case TiltReturnFromLeft:
 		n.lLegAngle(90)
@@ -244,8 +246,8 @@ func (n *Ninja) Walk(speed int, steps int) error {
 
 	n.err = n.Home()
 
-	rStepDuration := stepDuration + n.calibration.RightStepDurationTrim
-	lStepDuration := stepDuration + n.calibration.LeftStepDurationTrim
+	rStepDuration := stepDuration + n.trim.RightStepDuration
+	lStepDuration := stepDuration + n.trim.LeftStepDuration
 
 	// start with half step
 	n.err = n.RightLegSpin(speed, rStepDuration/2)
@@ -265,9 +267,9 @@ func (n *Ninja) Turn(speed int, dir TurnDirection) error {
 	case ModeWalk:
 		switch dir {
 		case TurnLeft:
-			return n.LeftLegSpin(speed, stepDuration+n.calibration.LeftStepDurationTrim*2)
+			return n.LeftLegSpin(speed, stepDuration+n.trim.LeftStepDuration*2)
 		case TurnRight:
-			return n.RightLegSpin(speed, stepDuration+n.calibration.RightStepDurationTrim*2)
+			return n.RightLegSpin(speed, stepDuration+n.trim.RightStepDuration*2)
 		default:
 			return ErrInvalidDirection
 		}
