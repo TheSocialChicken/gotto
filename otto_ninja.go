@@ -58,8 +58,8 @@ type Ninja struct {
 	trim    Trim
 }
 
-func New(rLeg, lLeg Servo180, rFoot, lFoot Servo360) Ninja {
-	return Ninja{
+func New(rLeg, lLeg Servo180, rFoot, lFoot Servo360) *Ninja {
+	return &Ninja{
 		rLeg:    rLeg,
 		rFoot:   rFoot,
 		lLeg:    lLeg,
