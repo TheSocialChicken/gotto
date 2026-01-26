@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	walkSpeed    = 20
 	tiltAngle    = 45
 	stepDuration = 600 * time.Millisecond
 )
@@ -174,6 +175,10 @@ func (n *Ninja) Tilt(dir TiltDir) error {
 }
 
 func (n *Ninja) Mode(mode Mode) error {
+	if n.mode != ModeWalk && mode != ModeRoll {
+		return ErrInvalidMode
+	}
+
 	if n.mode == mode {
 		return nil
 	}
@@ -230,7 +235,7 @@ func (n *Ninja) RightLegSpin(speed int, duration time.Duration) error {
 	return n.error()
 }
 
-func (n *Ninja) Walk(speed int, steps int) error {
+func (n *Ninja) Walk(steps int) error {
 	if n.mode != ModeWalk {
 		return ErrInvalidMode
 	}
@@ -239,25 +244,21 @@ func (n *Ninja) Walk(speed int, steps int) error {
 		return nil
 	}
 
+	speed := walkSpeed
 	if steps < 0 {
-		speed = -speed
+		speed = -walkSpeed
 		steps = -steps
 	}
-
-	n.err = n.Home()
 
 	rStepDuration := stepDuration + n.trim.RightStepDuration
 	lStepDuration := stepDuration + n.trim.LeftStepDuration
 
-	// start with half step
-	n.err = n.RightLegSpin(speed, rStepDuration/2)
-	// do steps-1 full steps
-	for range steps - 1 {
+	for range steps {
 		n.err = n.LeftLegSpin(speed, lStepDuration)
 		n.err = n.RightLegSpin(speed, rStepDuration)
 	}
 	// finish with half step
-	n.err = n.LeftLegSpin(speed, lStepDuration/2)
+	//n.err = n.LeftLegSpin(speed, lStepDuration/2)
 
 	return n.error()
 }
