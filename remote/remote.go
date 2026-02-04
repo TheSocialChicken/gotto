@@ -1,3 +1,4 @@
+// Package remote provides functionality to create and execute remote control commands for the Ninja robot.
 package remote
 
 import (
@@ -8,6 +9,7 @@ import (
 	"github.com/HattoriHanzo031/otto_ninja/buzzer"
 )
 
+// Op represents the operation code for a remote control command.
 type Op int
 
 const (
@@ -28,11 +30,15 @@ var (
 	ErrUnknownCommand = errors.New("ninja: invalid command")
 )
 
+// Command represents a remote control command for the Ninja robot.
 type Command struct {
-	Op   Op
+	// Op specifies the operation to be performed (e.g., set mode, walk, roll, etc.).
+	Op Op
+	// Args contains the arguments for the command, such as speed, direction, etc.
 	Args [2]int
 }
 
+// Execute performs the command on the given Ninja instance.
 func (c *Command) Execute(n *ninja.Ninja) error {
 	switch c.Op {
 	case OpSetMode:
