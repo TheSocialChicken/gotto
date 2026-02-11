@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	ninja "github.com/HattoriHanzo031/otto_ninja"
-	"github.com/HattoriHanzo031/otto_ninja/buzzer"
+	"github.com/HattoriHanzo031/gotto/buzzer"
+	"github.com/HattoriHanzo031/gotto/ninja"
 )
 
 // Op represents the operation code for a remote control command.

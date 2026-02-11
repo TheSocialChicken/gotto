@@ -5,50 +5,47 @@ import (
 	"math/rand"
 	"time"
 
-	ninja "github.com/HattoriHanzo031/otto_ninja"
+	"github.com/HattoriHanzo031/gotto/buzzer"
+	"github.com/HattoriHanzo031/gotto/ninja"
+	"github.com/HattoriHanzo031/gotto/servo"
 	"tinygo.org/x/drivers/hcsr04"
-	"tinygo.org/x/drivers/servo"
+	tgservo "tinygo.org/x/drivers/servo"
 )
 
 var (
-	pwmFoot = machine.PWM2
-	pwmLeg  = machine.PWM1
+	footPwm   = machine.PWM2
+	legPwm    = machine.PWM1
+	buzzerPwm = machine.PWM0
 
-	rFoot = machine.GP4
-	lFoot = machine.GP5
-	rLeg  = machine.GP2
-	lLeg  = machine.GP3
+	rLegPin  = machine.P0_24
+	lLegPin  = machine.P0_22
+	rFootPin = machine.P0_20
+	lFootPin = machine.P0_17
 
-	usTrig = machine.GP6
-	usEcho = machine.GP7
+	usTrigPin = machine.P1_00
+	usEchoPin = machine.P0_11
+
+	buzzerPin = machine.P0_31
 )
-
-type servo180 servo.Servo
-
-func (s servo180) SetAngle(angle int) error {
-	return servo.Servo(s).SetAngleWithMicroseconds(angle, 450, 2550)
-}
-
-type servo360 servo.Servo
-
-func (s servo360) SetSpeed(speed int) error {
-	angle := speed + 100        // map -100..100 to 0..200
-	angle = (angle * 180) / 200 // map 0..200 to 0..180
-	return servo.Servo(s).SetAngleWithMicroseconds(angle, 450, 2550)
-}
 
 func main() {
 	time.Sleep(3 * time.Second)
 
-	legArr := must(servo.NewArray(pwmLeg))
-	footArr := must(servo.NewArray(pwmFoot))
+	legArr := must(tgservo.NewArray(legPwm))
+	footArr := must(tgservo.NewArray(footPwm))
 
-	llServo := servo180(must(legArr.Add(lLeg)))
-	rlServo := servo180(must(legArr.Add(rLeg)))
-	lfServo := servo360(must(footArr.Add(lFoot)))
-	rfServo := servo360(must(footArr.Add(rFoot)))
+	llServo := servo.New180(must(legArr.Add(lLegPin)), 450, 2550)
+	rlServo := servo.New180(must(legArr.Add(rLegPin)), 450, 2550)
+	lfServo := servo.New360(must(footArr.Add(lFootPin)), 450, 2550)
+	rfServo := servo.New360(must(footArr.Add(rFootPin)), 450, 2550)
 
-	n := ninja.New(rlServo, llServo, rfServo, lfServo)
+	bz := buzzer.New(buzzer.NewPwmChannel(buzzerPwm, buzzerPin))
+	err := bz.Configure()
+	if err != nil {
+		panic(err)
+	}
+
+	n := ninja.New(rlServo, llServo, rfServo, lfServo, bz)
 	trim := ninja.Trim{
 		TiltAngle:         0,
 		LeftStepDuration:  0,
@@ -61,7 +58,7 @@ func main() {
 
 	n.Trim(trim)
 
-	us := hcsr04.New(usTrig, usEcho)
+	us := hcsr04.New(usTrigPin, usEchoPin)
 	us.Configure()
 
 	for {
@@ -69,6 +66,7 @@ func main() {
 		start := time.Now()
 		n.Mode(ninja.ModeWalk)
 		for time.Since(start) < 2*time.Minute {
+			// If an obstacle is detected within 150mm, step back and spin random amount to avoid it
 			dist := us.ReadDistance()
 			if dist != 0 && dist < 150 {
 				n.Walk(-1)
@@ -84,6 +82,7 @@ func main() {
 		n.Mode(ninja.ModeRoll)
 		n.Roll(50, 0)
 		for time.Since(start) < 2*time.Minute {
+			// If an obstacle is detected within 150mm, step back and spin random amount to avoid it
 			dist := us.ReadDistance()
 			if dist != 0 && dist < 150 {
 				n.RollStop()

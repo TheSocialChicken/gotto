@@ -5,50 +5,45 @@ import (
 	"machine"
 	"time"
 
-	ninja "github.com/HattoriHanzo031/otto_ninja"
-	"tinygo.org/x/drivers/servo"
+	"github.com/HattoriHanzo031/gotto/buzzer"
+	"github.com/HattoriHanzo031/gotto/ninja"
+	"github.com/HattoriHanzo031/gotto/servo"
+	tgservo "tinygo.org/x/drivers/servo"
 )
 
 var (
-	pwmFoot = machine.PWM2
-	pwmLeg  = machine.PWM1
+	pwmFoot   = machine.PWM2
+	pwmLeg    = machine.PWM1
+	pwmBuzzer = machine.PWM0
 
-	rFoot = machine.GP4
-	lFoot = machine.GP5
-	rLeg  = machine.GP2
-	lLeg  = machine.GP3
+	rLeg  = machine.P0_24
+	lLeg  = machine.P0_22
+	rFoot = machine.P0_20
+	lFoot = machine.P0_17
 
-	usTrig = machine.GP4
-	usEcho = machine.GP5
+	buzzerPin = machine.P0_31
 )
-
-type servo180 servo.Servo
-
-func (s servo180) SetAngle(angle int) error {
-	return servo.Servo(s).SetAngleWithMicroseconds(angle, 450, 2550)
-}
-
-type servo360 servo.Servo
-
-func (s servo360) SetSpeed(speed int) error {
-	angle := speed + 100        // map -100..100 to 0..200
-	angle = (angle * 180) / 200 // map 0..200 to 0..180
-	return servo.Servo(s).SetAngleWithMicroseconds(angle, 450, 2550)
-}
 
 func main() {
 	machine.InitSerial()
 	time.Sleep(3 * time.Second)
 
-	legArr := must(servo.NewArray(pwmLeg))
-	footArr := must(servo.NewArray(pwmFoot))
+	legArr := must(tgservo.NewArray(pwmLeg))
+	footArr := must(tgservo.NewArray(pwmFoot))
 
-	llServo := servo180(must(legArr.Add(lLeg)))
-	rlServo := servo180(must(legArr.Add(rLeg)))
-	lfServo := servo360(must(footArr.Add(lFoot)))
-	rfServo := servo360(must(footArr.Add(rFoot)))
+	llServo := servo.New180(must(legArr.Add(lLeg)), 450, 2550)
+	rlServo := servo.New180(must(legArr.Add(rLeg)), 450, 2550)
+	lfServo := servo.New360(must(footArr.Add(lFoot)), 450, 2550)
+	rfServo := servo.New360(must(footArr.Add(rFoot)), 450, 2550)
 
-	n := ninja.New(rlServo, llServo, rfServo, lfServo)
+	bz := buzzer.New(buzzer.NewPwmChannel(pwmBuzzer, buzzerPin))
+	err := bz.Configure()
+	if err != nil {
+		panic(err)
+	}
+
+	n := ninja.New(rlServo, llServo, rfServo, lfServo, bz)
+
 	trim := ninja.Trim{
 		TiltAngle:         0,
 		LeftStepDuration:  0,

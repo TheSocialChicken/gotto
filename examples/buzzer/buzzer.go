@@ -4,7 +4,7 @@ import (
 	"machine"
 	"time"
 
-	"github.com/HattoriHanzo031/otto_ninja/buzzer"
+	"github.com/HattoriHanzo031/gotto/buzzer"
 )
 
 var pwm = machine.PWM0
