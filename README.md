@@ -1,0 +1,135 @@
+# GOtto Ninja Robot
+
+A TinyGo port of the Otto ninja robot project, designed to be a fun and educational robotics programming experience.
+
+## Overview
+
+This project brings the beloved Otto ninja robot to the TinyGo ecosystem, allowing developers to program their robot using Go instead of traditional Arduino C++. Perfect for those interested in robotics, embedded programming, and learning TinyGo.
+
+## Features
+
+- Full Otto ninja robot functionality implemented in TinyGo
+- Compatible with NiceNano microcontroller
+- Modular code structure for easy customization
+- Multiple example programs included
+- Support for servo control, sensors, and robotic movements
+
+## Hardware Requirements
+
+- Otto ninja robot kit
+- NiceNano microcontroller (replaces original Arduino)
+- USB cable for programming and power
+- Assembled robot following Otto ninja documentation
+
+## Installation
+
+### Prerequisites
+
+1. **Install TinyGo**: Follow the installation guide at [tinygo.org/getting-started/install/](https://tinygo.org/getting-started/install/)
+
+2. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd gotto
+   ```
+
+### Hardware Setup
+
+1. Assemble your Otto ninja robot according to the [original documentation](https://www.ottodiy.com/)
+2. Replace the original microcontroller with a NiceNano board
+3. Note the pin configurations for motors, sensors, and other components
+4. Connect the robot to your computer via USB cable
+
+## Usage
+
+### Basic Setup
+
+1. Navigate to the examples directory:
+   ```bash
+   cd examples
+   ```
+
+2. Choose an example program (e.g., `demo/demo.go`)
+
+3. Update the pin configuration in the code to match your robot's wiring
+
+4. Flash the code to your robot:
+   ```bash
+   tinygo flash -target nicenano
+   ```
+
+5. Power on the robot and watch it come to life!
+
+## Motor Trimming
+
+Before using your robot for complex movements, it's important to calibrate (trim) the servos for optimal performance. Servo motors can have slight variations in their zero positions and speeds, which can cause the robot to walk unevenly or tilt.
+
+### Using the Trim Tool
+
+1. Flash the trimming program to your robot:
+   ```bash
+   cd examples/trim
+   tinygo flash -target nicenano
+   ```
+
+2. Open a serial monitor to communicate with the robot:
+   ```bash
+   tinygo monitor
+   ```
+
+3. Use the following commands to adjust your robot's movement:
+
+#### Leg Angle Adjustments
+- `ll+` / `ll-` - Increase/decrease left leg angle trim
+- `rl+` / `rl-` - Increase/decrease right leg angle trim
+
+#### Foot Speed Adjustments  
+- `lf+` / `lf-` - Increase/decrease left foot speed trim
+- `rf+` / `rf-` - Increase/decrease right foot speed trim
+
+#### Balance Adjustments
+- `tilt+` / `tilt-` - Increase/decrease tilt angle for balance
+
+#### Testing Commands
+- `walk` - Switch to walk mode for testing
+- `roll` - Switch to roll mode for testing  
+- `demo` - Run a full movement demonstration
+- `reset` - Reset all trim values to zero
+
+### Trimming Process
+
+1. Start with the robot in a neutral standing position
+2. Test walking and observe any tilting or uneven movement
+3. If the robot does not lean enough or leans too much while walking, adjust the tilt angle using `tilt+` or `tilt-`
+4. If in walking mode legs don't lay flat on the surface, adjust the leg angles with `ll+`/`ll-` or `rl+`/`rl-`
+5. If the robot curves while walking, adjust foot speeds with `lf+`/`lf-` or `rf+`/`rf-`
+6. Test frequently using the `walk` command to see your adjustments
+7. Once satisfied, note down your trim values for use in other programs
+
+The trim values you determine can be applied to other programs by setting them in the `ninja.Trim` struct before calling `n.Trim(trim)`.
+
+## Examples
+
+The project includes several example programs:
+
+- **`demo/`** - Basic robot demonstration
+- **`buzzer/`** - Sound and buzzer control
+- **`obstacle_avoidance/`** - Autonomous navigation
+- **`remote/`** - Bluetooth remote control functionality
+- **`trim/`** - Servo calibration and trimming
+
+## Project Structure
+
+```
+├── buzzer/           # Buzzer and sound control
+├── examples/         # Example programs
+├── ninja/           # Core robot functionality
+├── remote/          # Remote control features
+├── servo/           # Servo motor control
+├── go.mod          # Go module definition
+└── README.md       # This file
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests to help improve this project.
