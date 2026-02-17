@@ -44,5 +44,5 @@ func New360(s servo.Servo, usLow, usHigh int) servo360 {
 func (s servo360) SetSpeed(speed int) error {
 	angle := speed + 100        // map -100..100 to 0..200
 	angle = (angle * 180) / 200 // map 0..200 to 0..180
-	return s.servo.SetAngleWithMicroseconds(angle, s.usLow, s.usHigh)
+	return s.SetAngle(angle)
 }

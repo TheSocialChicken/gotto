@@ -1,7 +1,7 @@
 package main
 
 import (
-	"math/rand"
+	"math/rand/v2"
 	"time"
 
 	"github.com/HattoriHanzo031/gotto/ninja"
@@ -16,7 +16,7 @@ func obstacleAvoidanceWalkFn(us hcsr04.Device) ninja.CustomCommand {
 			dist := us.ReadDistance()
 			if dist != 0 && dist < 150 {
 				n.Walk(-1)
-				n.RightLegSpin(20, 100*time.Duration(rand.Intn(9)+6)*time.Millisecond)
+				n.RightLegSpin(20, 100*time.Duration(rand.IntN(9)+6)*time.Millisecond)
 				continue
 			}
 
@@ -39,8 +39,7 @@ func obstacleAvoidanceRollFn(us hcsr04.Device) ninja.CustomCommand {
 				n.Roll(-50, 0)
 				time.Sleep(500 * time.Millisecond)
 				n.Roll(0, 50)
-				rand.Intn(10)
-				time.Sleep(100 * time.Duration(rand.Intn(9)+1) * time.Millisecond)
+				time.Sleep(100 * time.Duration(rand.IntN(9)+1) * time.Millisecond)
 				n.Roll(50, 0)
 			}
 		}
